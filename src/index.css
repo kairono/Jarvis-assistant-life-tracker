@@ -1,0 +1,127 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ------------------------------------------------------------------ *
+ *  Theme variables (fallback = "Jarvis" preset).                      *
+ *  ThemeContext overrides these on <html> at runtime, so anything     *
+ *  here is just the no-flash default before React mounts.             *
+ * ------------------------------------------------------------------ */
+:root {
+  --c-bg: 6 11 20;
+  --c-surface: 11 18 32;
+  --c-panel: 15 23 42;
+  --c-border: 28 49 74;
+  --c-text: 226 240 255;
+  --c-muted: 122 145 173;
+  --c-accent: 34 211 238;
+  --c-accent2: 56 189 248;
+  --c-success: 52 211 153;
+  --c-danger: 248 113 113;
+  --c-warn: 251 191 36;
+
+  --font-ui: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Orbitron', var(--font-ui);
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+
+  color-scheme: dark;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-bg text-text;
+    font-family: var(--font-ui);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3 {
+    @apply font-display tracking-wide;
+  }
+  /* themed scrollbar */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--c-accent) / 0.25);
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--c-accent) / 0.45);
+    background-clip: padding-box;
+  }
+  ::selection {
+    background: rgb(var(--c-accent) / 0.3);
+  }
+}
+
+@layer components {
+  /* Glassy HUD panel */
+  .hud-panel {
+    @apply relative rounded-xl border border-border/70 bg-panel/60 backdrop-blur-sm shadow-panel;
+  }
+  /* Corner brackets for the Jarvis HUD look */
+  .hud-corners::before,
+  .hud-corners::after {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-color: rgb(var(--c-accent) / 0.6);
+    pointer-events: none;
+  }
+  .hud-corners::before {
+    top: 6px;
+    left: 6px;
+    border-top: 2px solid;
+    border-left: 2px solid;
+    border-top-left-radius: 6px;
+  }
+  .hud-corners::after {
+    bottom: 6px;
+    right: 6px;
+    border-bottom: 2px solid;
+    border-right: 2px solid;
+    border-bottom-right-radius: 6px;
+  }
+  .label-tech {
+    @apply font-display text-[10px] uppercase tracking-[0.2em] text-muted;
+  }
+  .input-base {
+    @apply w-full rounded-lg border border-border bg-surface/80 px-3 py-2 text-sm text-text
+           outline-none transition placeholder:text-muted/60
+           focus:border-accent focus:ring-1 focus:ring-accent/50;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium
+           transition disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-accent/15 text-accent border border-accent/40 hover:bg-accent/25 shadow-glow-sm;
+  }
+  .btn-ghost {
+    @apply btn border border-border text-muted hover:text-text hover:border-accent/50;
+  }
+  .btn-danger {
+    @apply btn border border-danger/40 text-danger hover:bg-danger/15;
+  }
+}
+
+@layer utilities {
+  /* Faint engineering grid used as the app backdrop */
+  .hud-grid {
+    background-image:
+      linear-gradient(rgb(var(--c-accent) / 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--c-accent) / 0.05) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+  .text-glow {
+    text-shadow: 0 0 14px rgb(var(--c-accent) / 0.55);
+  }
+}
