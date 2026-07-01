@@ -5,6 +5,10 @@ import type { Collection, DataStore, NewRecord } from './DataStore';
 import { JarvisDB, dexie } from './schema';
 import { SAMPLE_DATA } from './seed';
 
+// Marks that first-run seeding has happened, so we never re-seed samples over
+// a user who has intentionally emptied their data.
+const SEED_FLAG = 'jarvis:seeded';
+
 const uid = (): string =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
@@ -126,9 +130,7 @@ export class IndexedDbStore implements DataStore {
     this.emit();
   }
 
-  async seedIfEmpty(): Promise<void> {
-    const total = await this.db.transactions.count();
-    if (total > 0) return;
+  private async insertSample(): Promise<void> {
     await this.db.transaction(
       'rw',
       [
@@ -149,6 +151,22 @@ export class IndexedDbStore implements DataStore {
       },
     );
     this.emit();
+  }
+
+  async seedIfEmpty(): Promise<void> {
+    // Seed exactly once, ever. The flag persists, so deleting your rows (or
+    // "Clear all data") leaves the app empty instead of resurrecting samples.
+    if (localStorage.getItem(SEED_FLAG)) return;
+    localStorage.setItem(SEED_FLAG, '1');
+    const total = await this.db.transactions.count();
+    if (total > 0) return;
+    await this.insertSample();
+  }
+
+  async resetToSample(): Promise<void> {
+    await this.reset();
+    await this.insertSample();
+    localStorage.setItem(SEED_FLAG, '1');
   }
 
   async reset(): Promise<void> {

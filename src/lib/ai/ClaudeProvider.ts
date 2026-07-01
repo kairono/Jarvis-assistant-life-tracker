@@ -1,5 +1,4 @@
-import type { AiProvider, AskOptions } from './AiProvider';
-import { ASSISTANT_SYSTEM_PROMPT } from './systemPrompt';
+import type { AiProvider, AskRequest, AskResult } from './AiProvider';
 
 const API_URL = 'https://api.anthropic.com/v1/messages';
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
@@ -27,14 +26,22 @@ export class ClaudeProvider implements AiProvider {
     return this.apiKey.trim().length > 0;
   }
 
-  async ask(context: string, question: string, opts: AskOptions = {}): Promise<string> {
+  // NOTE: this provider is text-only and does not run tools (it isn't in the
+  // model picker by default). Kept in sync with the interface for easy re-add.
+  async ask(req: AskRequest): Promise<AskResult> {
     if (!this.isConfigured()) {
       throw new Error(
         'No Anthropic API key configured. Add VITE_ANTHROPIC_API_KEY to your .env and restart the dev server.',
       );
     }
 
-    const userContent = `Here is a snapshot of my current data:\n\n${context}\n\n---\n\nMy question: ${question}`;
+    const messages = [
+      ...req.history.map((m) => ({ role: m.role, content: m.content })),
+      {
+        role: 'user' as const,
+        content: `Here is a snapshot of my current data:\n\n${req.context}\n\n---\n\nMy question: ${req.question}`,
+      },
+    ];
 
     const res = await fetch(API_URL, {
       method: 'POST',
@@ -46,12 +53,12 @@ export class ClaudeProvider implements AiProvider {
         'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
-        model: this.model,
+        model: req.model ?? this.model,
         max_tokens: 1024,
-        system: ASSISTANT_SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: userContent }],
+        system: req.system,
+        messages,
       }),
-      signal: opts.signal,
+      signal: req.signal,
     });
 
     if (!res.ok) {
@@ -65,6 +72,6 @@ export class ClaudeProvider implements AiProvider {
       .map((b) => b.text ?? '')
       .join('\n')
       .trim();
-    return text || '(no response)';
+    return { text: text || '(no response)', actions: [] };
   }
 }

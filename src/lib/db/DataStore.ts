@@ -54,8 +54,14 @@ export interface DataStore {
    */
   deleteProfile(): Promise<void>;
 
-  /** Insert sample data on first run (no-op if the store already has data). */
+  /**
+   * Insert sample data on the very first run only. Once seeded (tracked with a
+   * persistent flag), emptying the data will NOT bring the sample back.
+   */
   seedIfEmpty(): Promise<void>;
+
+  /** Wipe everything and load a fresh copy of the sample data. */
+  resetToSample(): Promise<void>;
 
   /** Wipe everything (used by the "reset data" action in Settings). */
   reset(): Promise<void>;

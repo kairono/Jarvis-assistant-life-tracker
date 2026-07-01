@@ -29,8 +29,10 @@ All keys are optional for Phase 1–2 — the app is fully usable without them.
 
 | Variable | Purpose |
 | --- | --- |
-| `VITE_ANTHROPIC_API_KEY` | Enables the Jarvis AI assistant (Anthropic Claude). |
-| `VITE_ANTHROPIC_MODEL` | Model id (defaults to `claude-sonnet-4-6`). |
+| `VITE_GROQ_API_KEY` | **Free.** Enables the Groq (Llama) models in the chat picker. Get one at [console.groq.com](https://console.groq.com/keys). |
+| `VITE_GEMINI_API_KEY` | **Free.** Enables the Google Gemini models in the chat picker. Get one at [aistudio.google.com](https://aistudio.google.com/app/apikey). |
+| `VITE_ANTHROPIC_API_KEY` | (Paid) Anthropic Claude — provider class still ships in `src/lib/ai/ClaudeProvider.ts` but isn't in the picker by default. |
+| `VITE_ANTHROPIC_MODEL` | Claude model id (defaults to `claude-sonnet-4-6`). |
 | `VITE_GOOGLE_CLIENT_ID` | Google Calendar sync (Phase 3, not built yet). |
 | `VITE_USER_PROFILE` | The person's whole profile as single-line JSON (name, health, finance, prefs) — the baseline JARVIS reads so it knows who it's helping. See `.env.example` for the shape and `src/lib/profile.ts` for the typed model. You can also view/edit the profile live in **Settings → Profile**, which saves a local override to IndexedDB (the env value is the fallback). |
 
@@ -38,11 +40,14 @@ All keys are optional for Phase 1–2 — the app is fully usable without them.
 > `VITE_USER_PROFILE` are never committed or pushed to GitHub. Only
 > `.env.example` (with placeholder values) is tracked.
 
-> ⚠️ The assistant currently calls the Anthropic API directly from the browser,
-> which exposes the key in the client. Fine for a local single-user setup, but
-> **move it behind a small proxy before any deployment** — see the `TODO` in
-> `src/lib/ai/ClaudeProvider.ts`. Because every AI call funnels through
-> `aiClient`, that's a contained change.
+> ⚠️ Every provider calls its API directly from the browser, which exposes the
+> key in the client. Fine for a local single-user setup, but **move it behind a
+> small proxy before any deployment**. Because every AI call funnels through
+> `aiClient` (which picks a provider by model id), that's a contained change.
+>
+> To add another backend (OpenRouter, Mistral, local Ollama, …), register a
+> provider in `src/lib/ai/aiClient.ts` and add entries to `src/lib/ai/models.ts` —
+> most speak the OpenAI-compatible format, so they reuse `OpenAiCompatibleProvider`.
 
 ### Scripts
 

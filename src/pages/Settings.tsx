@@ -18,11 +18,14 @@ export function Settings() {
   const [confirmReset, setConfirmReset] = useState<null | 'clear' | 'sample'>(null);
 
   async function runReset(kind: 'clear' | 'sample') {
-    await db.reset();
-    if (kind === 'sample') await db.seedIfEmpty();
-    // A full clear should also tombstone the profile so it isn't re-seeded
-    // from the env baseline on the next load.
-    else await db.deleteProfile();
+    if (kind === 'sample') {
+      await db.resetToSample();
+    } else {
+      // A full clear also tombstones the profile so it isn't re-seeded from the
+      // env baseline on the next load.
+      await db.reset();
+      await db.deleteProfile();
+    }
     setConfirmReset(null);
   }
 
@@ -128,24 +131,31 @@ export function Settings() {
 
       {/* Assistant */}
       <Panel className="p-5">
-        <SectionHeader title="Assistant" subtitle="The Jarvis AI layer" />
+        <SectionHeader
+          title="Assistant"
+          subtitle="Models Jarvis can use — pick one live in the chat panel"
+        />
         <div className="space-y-2 text-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-muted">Provider</span>
-            <span className="text-text">{aiClient.providerName}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-muted">API key</span>
-            {aiClient.isConfigured() ? (
-              <Badge tone="success">Configured</Badge>
-            ) : (
-              <Badge tone="warn">Not set</Badge>
-            )}
-          </div>
+          {aiClient.models.map((m) => {
+            const ready = aiClient.isModelConfigured(m.id);
+            return (
+              <div key={m.id} className="flex items-center justify-between">
+                <span className="text-text">{m.label}</span>
+                {ready ? (
+                  <Badge tone="success">Ready</Badge>
+                ) : (
+                  <Badge tone="muted">{aiClient.envHintFor(m.id)}</Badge>
+                )}
+              </div>
+            );
+          })}
           <p className="pt-2 text-xs text-muted">
-            Set <code className="font-mono text-text">VITE_ANTHROPIC_API_KEY</code> in your{' '}
-            <code className="font-mono text-text">.env</code> (then restart the dev server) to enable replies.
-            Tune Jarvis's personality in <code className="font-mono text-text">src/lib/ai/systemPrompt.ts</code>.
+            Add the API key shown next to a model to your{' '}
+            <code className="font-mono text-text">.env</code> (then restart the dev server) to
+            enable it — get free keys from{' '}
+            <span className="text-text">console.groq.com</span> and{' '}
+            <span className="text-text">aistudio.google.com</span>. Tune Jarvis's personality in{' '}
+            <code className="font-mono text-text">src/lib/ai/systemPrompt.ts</code>.
           </p>
         </div>
       </Panel>
