@@ -1,5 +1,5 @@
 import type { AiProvider, AskRequest, AskResult } from './AiProvider';
-import type { ToolDef, ToolProperty } from './tools';
+import { geminiTools } from './geminiTools';
 
 // ------------------------------------------------------------------ //
 //  GeminiProvider — Google's Generative Language API.                 //
@@ -30,29 +30,6 @@ interface GeminiResponse {
   candidates?: Array<{ content?: { parts?: Part[] } }>;
 }
 
-// Gemini wants OpenAPI-style schema with UPPERCASE types.
-const geminiType = (t: ToolProperty['type']) =>
-  ({ string: 'STRING', number: 'NUMBER', integer: 'INTEGER', boolean: 'BOOLEAN' })[t];
-
-const toGeminiTools = (tools: ToolDef[]) => [
-  {
-    functionDeclarations: tools.map((t) => ({
-      name: t.name,
-      description: t.description,
-      parameters: {
-        type: 'OBJECT',
-        properties: Object.fromEntries(
-          Object.entries(t.parameters.properties).map(([k, p]) => [
-            k,
-            { type: geminiType(p.type), description: p.description, ...(p.enum ? { enum: p.enum } : {}) },
-          ]),
-        ),
-        required: t.parameters.required ?? [],
-      },
-    })),
-  },
-];
-
 export class GeminiProvider implements AiProvider {
   readonly name = 'Google Gemini';
 
@@ -78,7 +55,7 @@ export class GeminiProvider implements AiProvider {
       { role: 'user', parts: [{ text: req.question }] },
     ];
 
-    const tools = req.tools?.length ? toGeminiTools(req.tools) : undefined;
+    const tools = req.tools?.length ? geminiTools(req.tools) : undefined;
     const actions: string[] = [];
 
     for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {

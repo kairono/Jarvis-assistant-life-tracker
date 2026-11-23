@@ -76,6 +76,16 @@ export interface CalendarEvent {
   source: 'google' | 'local';
 }
 
+/** One timed session of a daily activity (toilet, shower, breakfast…). */
+export interface ActivitySession {
+  id: ID;
+  activity: string; // e.g. "Toilet"
+  start: string; // ISO datetime
+  durationMin: number;
+  gcalEventId?: string; // set once pushed to Google Calendar
+  note?: string;
+}
+
 // Maps a domain name to its record type — the backbone of the generic store.
 export interface DomainMap {
   transactions: Transaction;
@@ -84,6 +94,7 @@ export interface DomainMap {
   visionItems: VisionItem;
   tasks: Task;
   calendarEvents: CalendarEvent;
+  activities: ActivitySession;
 }
 
 export type DomainName = keyof DomainMap;

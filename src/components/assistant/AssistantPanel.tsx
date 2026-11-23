@@ -7,6 +7,8 @@ import { buildContext } from '../../lib/ai/context';
 import { ASSISTANT_SYSTEM_PROMPT } from '../../lib/ai/systemPrompt';
 import { useSpeech } from '../../hooks/useSpeech';
 import { useGeminiLive, type LiveTurn } from '../../hooks/useGeminiLive';
+import { findModel } from '../../lib/ai/models';
+import { IS_ARTIFACT } from '../../lib/runtime';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -40,7 +42,10 @@ export function AssistantPanel({ open, onClose }: { open: boolean; onClose: () =
   const [error, setError] = useState<string | null>(null);
   const [speakReplies, setSpeakReplies] = useState(false);
   const [modelId, setModelId] = useState<string>(
-    () => localStorage.getItem(MODEL_KEY) ?? aiClient.defaultModelId,
+    () => {
+      const saved = localStorage.getItem(MODEL_KEY);
+      return saved && findModel(saved) ? saved : aiClient.defaultModelId;
+    },
   );
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -48,7 +53,7 @@ export function AssistantPanel({ open, onClose }: { open: boolean; onClose: () =
   const configured = aiClient.isModelConfigured(modelId);
 
   // --- Live voice (Gemini) --- //
-  const geminiKey = (import.meta.env.VITE_GEMINI_API_KEY ?? '').trim();
+  const geminiKey = IS_ARTIFACT ? '' : (import.meta.env.VITE_GEMINI_API_KEY ?? '').trim();
   const onLiveTurn = useCallback((turn: LiveTurn) => {
     setMessages((m) => [
       ...m,
@@ -56,7 +61,10 @@ export function AssistantPanel({ open, onClose }: { open: boolean; onClose: () =
       ...(turn.model ? [{ role: 'assistant' as const, text: turn.model }] : []),
     ]);
   }, []);
-  const live = useGeminiLive(onLiveTurn);
+  const onLiveAction = useCallback((summary: string) => {
+    setMessages((m) => [...m, { role: 'assistant' as const, text: '', actions: [summary] }]);
+  }, []);
+  const live = useGeminiLive(onLiveTurn, onLiveAction);
 
   const startLive = useCallback(async () => {
     if (!geminiKey) return;
@@ -81,7 +89,7 @@ export function AssistantPanel({ open, onClose }: { open: boolean; onClose: () =
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, busy]);
 
-  async function send(question: string) {
+  async function send(question: string, opts: { speak?: boolean } = {}) {
     const q = question.trim();
     if (!q || busy) return;
     setInput('');
@@ -93,7 +101,7 @@ export function AssistantPanel({ open, onClose }: { open: boolean; onClose: () =
     try {
       const { text, actions } = await aiClient.ask(q, modelId, history);
       setMessages((m) => [...m, { role: 'assistant', text, actions }]);
-      if (speakReplies) speech.speak(text);
+      if (speakReplies || opts.speak) speech.speak(text);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong.');
     } finally {
@@ -105,19 +113,25 @@ export function AssistantPanel({ open, onClose }: { open: boolean; onClose: () =
     if (speech.listening) {
       speech.stopListening();
     } else {
-      speech.startListening((text) => setInput((prev) => (prev ? `${prev} ${text}` : text)));
+      // Artifact: push-to-talk voice chat — your words are sent as soon as you
+      // stop, and Jarvis answers out loud. Locally: dictate into the composer.
+      speech.startListening(
+        IS_ARTIFACT
+          ? (text) => void send(text, { speak: true })
+          : (text) => setInput((prev) => (prev ? `${prev} ${text}` : text)),
+      );
     }
   }
 
   return (
     <div
-      className={`fixed inset-y-0 right-0 z-40 flex w-full max-w-md flex-col border-l border-border/60 bg-surface/95 backdrop-blur-md transition-transform duration-300 ${
-        open ? 'translate-x-0' : 'translate-x-full'
+      className={`glass fixed inset-2 z-40 flex flex-col overflow-hidden rounded-[32px] bg-bg/60 transition-all duration-300 sm:inset-y-3 sm:left-auto sm:right-3 sm:w-[420px] ${
+        open ? 'visible translate-x-0 opacity-100' : 'invisible pointer-events-none translate-x-[110%] opacity-0'
       }`}
     >
       {/* Header */}
-      <div className="flex items-center gap-3 border-b border-border/60 px-4 py-3">
-        <JarvisCore size={40} />
+      <div className="flex items-center gap-3 border-b border-white/10 px-4 py-3">
+        {open ? <JarvisCore size={40} /> : <span className="h-10 w-10" />}
         <div className="min-w-0 flex-1">
           <div className="font-display tracking-widest text-text">JARVIS</div>
           <div className="flex items-center gap-1.5">
@@ -174,7 +188,7 @@ export function AssistantPanel({ open, onClose }: { open: boolean; onClose: () =
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4">
         {live.active && (
-          <div className="rounded-xl border border-accent/40 bg-accent/10 p-3">
+          <div className="rounded-2xl border border-accent/40 bg-accent/10 p-3">
             <div className="flex items-center gap-3">
               <span className={live.state === 'speaking' ? 'animate-pulse' : ''}>
                 <JarvisCore size={34} />
@@ -204,7 +218,12 @@ export function AssistantPanel({ open, onClose }: { open: boolean; onClose: () =
           </div>
         )}
 
-        {!configured && (
+        {!configured && IS_ARTIFACT && (
+          <div className="rounded-lg border border-warn/40 bg-warn/10 p-3 text-xs text-warn">
+            Claude isn’t reachable in this view. Open Jarvis on claude.ai while signed in.
+          </div>
+        )}
+        {!configured && !IS_ARTIFACT && (
           <div className="rounded-lg border border-warn/40 bg-warn/10 p-3 text-xs text-warn">
             Add <code className="font-mono">{aiClient.envHintFor(modelId)}</code> to your{' '}
             <code className="font-mono">.env</code> and restart the dev server to use{' '}
@@ -231,7 +250,7 @@ export function AssistantPanel({ open, onClose }: { open: boolean; onClose: () =
                 <button
                   key={s}
                   onClick={() => send(s)}
-                  className="rounded-lg border border-border bg-panel/50 px-3 py-2 text-left text-sm text-muted transition hover:border-accent/50 hover:text-text"
+                  className="rounded-2xl bg-white/[0.06] px-3.5 py-2.5 text-left text-sm text-muted transition hover:bg-white/10 hover:text-text"
                 >
                   {s}
                 </button>
@@ -243,21 +262,23 @@ export function AssistantPanel({ open, onClose }: { open: boolean; onClose: () =
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className="max-w-[85%]">
-              <div
-                className={`whitespace-pre-wrap rounded-xl px-3.5 py-2.5 text-sm ${
-                  m.role === 'user'
-                    ? 'bg-accent/15 text-text'
-                    : 'border border-border/70 bg-panel/70 text-text'
-                }`}
-              >
-                {m.text}
-              </div>
+              {m.text && (
+                <div
+                  className={`whitespace-pre-wrap rounded-[20px] px-3.5 py-2.5 text-sm ${
+                    m.role === 'user'
+                      ? 'bg-accent/20 text-text ring-1 ring-accent/30'
+                      : 'bg-white/10 text-text'
+                  }`}
+                >
+                  {m.text}
+                </div>
+              )}
               {m.actions && m.actions.length > 0 && (
                 <div className="mt-1.5 space-y-1">
                   {m.actions.map((a, j) => (
                     <div
                       key={j}
-                      className="flex items-center gap-1.5 rounded-lg border border-success/30 bg-success/10 px-2.5 py-1.5 text-xs text-success"
+                      className="flex items-center gap-1.5 rounded-xl border border-success/30 bg-success/10 px-2.5 py-1.5 text-xs text-success"
                     >
                       <Icon name="check" size={13} /> {a}
                     </div>
@@ -280,13 +301,14 @@ export function AssistantPanel({ open, onClose }: { open: boolean; onClose: () =
       </div>
 
       {/* Composer */}
-      <div className="border-t border-border/60 p-3">
+      <div className="border-t border-white/10 p-3">
         <div className="flex items-end gap-2">
           {speech.sttSupported && (
             <IconButton
               icon="mic"
               onClick={toggleMic}
               aria-label="Voice input"
+              title={IS_ARTIFACT ? 'Talk to Jarvis — tap, speak, tap again' : 'Dictate'}
               className={speech.listening ? 'animate-pulse border-accent text-accent' : ''}
             />
           )}
@@ -300,8 +322,12 @@ export function AssistantPanel({ open, onClose }: { open: boolean; onClose: () =
               }
             }}
             rows={1}
-            placeholder={speech.listening ? 'Listening…' : 'Ask Jarvis…'}
-            className="input-base max-h-28 flex-1 resize-none"
+            placeholder={
+              speech.listening
+                ? speech.partial || (IS_ARTIFACT ? 'Listening… tap the mic again to send' : 'Listening…')
+                : 'Ask Jarvis…'
+            }
+            className="input-base max-h-28 flex-1 resize-none rounded-[20px]"
           />
           <Button onClick={() => send(input)} disabled={busy || !input.trim()} aria-label="Send">
             <Icon name="send" size={16} />

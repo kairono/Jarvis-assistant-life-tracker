@@ -1,6 +1,7 @@
 import type { AiProvider, AskResult, ChatMessage } from './AiProvider';
 import { OpenAiCompatibleProvider } from './OpenAiCompatibleProvider';
 import { GeminiProvider } from './GeminiProvider';
+import { ClaudeSampleProvider } from './ClaudeSampleProvider';
 import { buildContext } from './context';
 import { ASSISTANT_SYSTEM_PROMPT } from './systemPrompt';
 import { TOOLS, executeTool } from './tools';
@@ -31,6 +32,7 @@ class AiClient {
       fallbackModel: 'llama-3.3-70b-versatile',
     }),
     gemini: new GeminiProvider(),
+    claude: new ClaudeSampleProvider(),
   };
 
   readonly models: ModelSpec[] = MODELS;
@@ -73,6 +75,7 @@ class AiClient {
     history: ChatMessage[] = [],
     signal?: AbortSignal,
   ): Promise<AskResult> {
+    // A model id saved from the other build (local vs artifact) falls back to the default.
     const spec = findModel(modelId) ?? findModel(DEFAULT_MODEL_ID)!;
     const provider = this.providers[spec.provider];
     if (!provider.isConfigured()) {

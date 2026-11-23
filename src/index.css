@@ -20,11 +20,23 @@
   --c-danger: 248 113 113;
   --c-warn: 251 191 36;
 
-  --font-ui: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-display: 'Orbitron', var(--font-ui);
-  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+  --font-mono: 'SF Mono', 'JetBrains Mono', ui-monospace, monospace;
+
+  /* visionOS glass material */
+  --glass-tint: 255 255 255;
+  --glass-a: 0.075;
+  --glass-a2: 0.035;
+  --glass-edge: 0.14;
 
   color-scheme: dark;
+}
+:root[data-light='true'] {
+  --glass-a: 0.62;
+  --glass-a2: 0.48;
+  --glass-edge: 0.7;
+  color-scheme: light;
 }
 
 @layer base {
@@ -37,23 +49,23 @@
     @apply bg-bg text-text;
     font-family: var(--font-ui);
     -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.01em;
   }
   h1, h2, h3 {
-    @apply font-display tracking-wide;
+    @apply font-display font-semibold tracking-wide;
   }
-  /* themed scrollbar */
   ::-webkit-scrollbar {
     width: 10px;
     height: 10px;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgb(var(--c-accent) / 0.25);
+    background: rgb(var(--c-text) / 0.18);
     border-radius: 8px;
-    border: 2px solid transparent;
+    border: 3px solid transparent;
     background-clip: padding-box;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgb(var(--c-accent) / 0.45);
+    background: rgb(var(--c-text) / 0.32);
     background-clip: padding-box;
   }
   ::selection {
@@ -62,66 +74,92 @@
 }
 
 @layer components {
-  /* Glassy HUD panel */
-  .hud-panel {
-    @apply relative rounded-xl border border-border/70 bg-panel/60 backdrop-blur-sm shadow-panel;
+  /* Glass look without the live blur. The backdrop is a static gradient,
+     so blurring it is invisible but costs a GPU pass on every scroll frame.
+     Content panels use this. */
+  .glass-flat {
+    background: linear-gradient(
+      180deg,
+      rgb(var(--glass-tint) / calc(var(--glass-a) + 0.02)),
+      rgb(var(--glass-tint) / calc(var(--glass-a2) + 0.015))
+    );
+    border: 1px solid rgb(var(--glass-tint) / var(--glass-edge));
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.12),
+      0 18px 40px -22px rgb(0 0 0 / 0.5);
   }
-  /* Corner brackets for the Jarvis HUD look */
+  /* Real frosted glass, only for the few floating layers that sit over
+     moving content (title bar, ornament, assistant, dialogs). */
+  .glass {
+    @apply glass-flat;
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    backdrop-filter: blur(20px) saturate(160%);
+  }
+  .hud-panel {
+    @apply glass-flat relative rounded-[28px];
+  }
+  /* Corner brackets: the Jarvis HUD signature, drawn on the glass */
   .hud-corners::before,
   .hud-corners::after {
     content: '';
     position: absolute;
-    width: 14px;
-    height: 14px;
-    border-color: rgb(var(--c-accent) / 0.6);
+    width: 12px;
+    height: 12px;
+    border-color: rgb(var(--c-accent) / 0.55);
     pointer-events: none;
   }
   .hud-corners::before {
-    top: 6px;
-    left: 6px;
+    top: 7px;
+    left: 7px;
     border-top: 2px solid;
     border-left: 2px solid;
-    border-top-left-radius: 6px;
+    border-top-left-radius: 8px;
   }
   .hud-corners::after {
-    bottom: 6px;
-    right: 6px;
+    bottom: 7px;
+    right: 7px;
     border-bottom: 2px solid;
     border-right: 2px solid;
-    border-bottom-right-radius: 6px;
+    border-bottom-right-radius: 8px;
   }
   .label-tech {
     @apply font-display text-[10px] uppercase tracking-[0.2em] text-muted;
   }
   .input-base {
-    @apply w-full rounded-lg border border-border bg-surface/80 px-3 py-2 text-sm text-text
+    @apply w-full rounded-xl border border-white/10 bg-black/20 px-3.5 py-2.5 text-sm text-text
            outline-none transition placeholder:text-muted/60
-           focus:border-accent focus:ring-1 focus:ring-accent/50;
+           focus:border-accent/70 focus:ring-2 focus:ring-accent/30;
+  }
+  :root[data-light='true'] .input-base {
+    @apply border-black/10 bg-white/70;
   }
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium
-           transition disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-medium
+           transition active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary {
-    @apply btn bg-accent/15 text-accent border border-accent/40 hover:bg-accent/25 shadow-glow-sm;
+    @apply btn border border-accent/50 bg-accent/20 text-accent shadow-glow-sm hover:bg-accent/30;
   }
   .btn-ghost {
-    @apply btn border border-border text-muted hover:text-text hover:border-accent/50;
+    @apply btn glass-flat text-text hover:bg-white/10;
   }
   .btn-danger {
-    @apply btn border border-danger/40 text-danger hover:bg-danger/15;
+    @apply btn bg-danger/15 text-danger hover:bg-danger/25;
   }
 }
 
 @layer utilities {
-  /* Faint engineering grid used as the app backdrop */
-  .hud-grid {
-    background-image:
-      linear-gradient(rgb(var(--c-accent) / 0.05) 1px, transparent 1px),
-      linear-gradient(90deg, rgb(var(--c-accent) / 0.05) 1px, transparent 1px);
-    background-size: 44px 44px;
-  }
   .text-glow {
     text-shadow: 0 0 14px rgb(var(--c-accent) / 0.55);
+  }
+  /* HUD environment behind the glass: accent glows over the engineering grid */
+  .vision-backdrop {
+    background:
+      linear-gradient(rgb(var(--c-accent) / 0.05) 1px, transparent 1px) 0 0 / 44px 44px,
+      linear-gradient(90deg, rgb(var(--c-accent) / 0.05) 1px, transparent 1px) 0 0 / 44px 44px,
+      radial-gradient(60% 50% at 85% 0%, rgb(var(--c-accent) / 0.26), transparent 70%),
+      radial-gradient(55% 45% at 0% 100%, rgb(var(--c-accent2) / 0.2), transparent 70%),
+      radial-gradient(45% 40% at 55% 55%, rgb(var(--c-accent) / 0.07), transparent 70%),
+      rgb(var(--c-bg));
   }
 }

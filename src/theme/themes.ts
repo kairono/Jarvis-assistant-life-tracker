@@ -29,11 +29,21 @@ export const THEMES: ThemePreset[] = [
   {
     id: 'jarvis',
     name: 'Jarvis',
-    blurb: 'Cyan HUD on deep navy — the default.',
+    blurb: 'Cyan HUD glass on deep navy — the default.',
     vars: {
       bg: '6 11 20', surface: '11 18 32', panel: '15 23 42', border: '28 49 74',
       text: '226 240 255', muted: '122 145 173', accent: '34 211 238', accent2: '56 189 248',
       success: '52 211 153', danger: '248 113 113', warn: '251 191 36',
+    },
+  },
+  {
+    id: 'vision',
+    name: 'Vision',
+    blurb: 'Frosted glass in blue and violet.',
+    vars: {
+      bg: '9 10 18', surface: '30 32 44', panel: '46 49 64', border: '96 102 124',
+      text: '246 247 250', muted: '168 174 190', accent: '10 132 255', accent2: '191 90 242',
+      success: '48 209 88', danger: '255 69 58', warn: '255 214 10',
     },
   },
   {
@@ -87,6 +97,7 @@ export interface Accent {
 }
 
 export const ACCENTS: Accent[] = [
+  { name: 'Blue', rgb: '10 132 255' },
   { name: 'Cyan', rgb: '34 211 238' },
   { name: 'Sky', rgb: '56 189 248' },
   { name: 'Indigo', rgb: '129 140 248' },
@@ -107,7 +118,7 @@ export interface FontOption {
 
 export const FONTS: FontOption[] = [
   { id: 'inter', name: 'Inter', stack: "'Inter', system-ui, sans-serif" },
-  { id: 'system', name: 'System', stack: "system-ui, -apple-system, 'Segoe UI', sans-serif" },
+  { id: 'system', name: 'System (SF Pro)', stack: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', system-ui, 'Segoe UI', sans-serif" },
   { id: 'rajdhani', name: 'Rajdhani', stack: "'Rajdhani', system-ui, sans-serif" },
   { id: 'grotesk', name: 'Space Grotesk', stack: "'Space Grotesk', system-ui, sans-serif" },
   { id: 'mono', name: 'JetBrains Mono', stack: "'JetBrains Mono', ui-monospace, monospace" },

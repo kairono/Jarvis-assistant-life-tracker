@@ -11,6 +11,10 @@
 //  Model / voice are easy to change below if Google renames them.    //
 // ------------------------------------------------------------------ //
 
+import type { ToolExecutor } from './AiProvider';
+import { geminiTools } from './geminiTools';
+import { TOOLS } from './tools';
+
 // Which live model + API version to use is DISCOVERED at runtime from the key
 // (different accounts have different models enabled, some only under v1alpha).
 // Set VITE_GEMINI_LIVE_MODEL to skip discovery and force a specific model.
@@ -72,6 +76,8 @@ export interface GeminiLiveCallbacks {
   onUserTranscript?: (deltaText: string) => void;
   onModelTranscript?: (deltaText: string) => void;
   onTurnComplete?: () => void;
+  /** A tool the model invoked was executed; `summary` is the human result. */
+  onAction?: (summary: string) => void;
   onError?: (message: string) => void;
 }
 
@@ -87,9 +93,15 @@ interface ServerContent {
   inputTranscription?: { text?: string };
   outputTranscription?: { text?: string };
 }
+interface FunctionCall {
+  id?: string;
+  name: string;
+  args?: Record<string, unknown>;
+}
 interface LiveMessage {
   setupComplete?: unknown;
   serverContent?: ServerContent;
+  toolCall?: { functionCalls?: FunctionCall[] };
 }
 
 // --- Audio helpers. --- //
@@ -148,12 +160,19 @@ export class GeminiLiveClient {
   private readonly apiKey: string;
   private readonly systemInstruction: string;
   private readonly cb: GeminiLiveCallbacks;
+  private readonly execute?: ToolExecutor;
   private model = FALLBACK.model; // resolved in start()
 
-  constructor(apiKey: string, systemInstruction: string, cb: GeminiLiveCallbacks = {}) {
+  constructor(
+    apiKey: string,
+    systemInstruction: string,
+    cb: GeminiLiveCallbacks = {},
+    execute?: ToolExecutor,
+  ) {
     this.apiKey = apiKey;
     this.systemInstruction = systemInstruction;
     this.cb = cb;
+    this.execute = execute;
   }
 
   private setStatus(s: LiveStatus) {
@@ -191,6 +210,7 @@ export class GeminiLiveClient {
             systemInstruction: { parts: [{ text: this.systemInstruction }] },
             inputAudioTranscription: {},
             outputAudioTranscription: {},
+            ...(this.execute ? { tools: geminiTools(TOOLS) } : {}),
           },
         }),
       );
@@ -241,6 +261,11 @@ export class GeminiLiveClient {
       return;
     }
 
+    if (msg.toolCall?.functionCalls?.length) {
+      await this.handleToolCalls(msg.toolCall.functionCalls);
+      return;
+    }
+
     const sc = msg.serverContent;
     if (!sc) return;
 
@@ -252,6 +277,19 @@ export class GeminiLiveClient {
       if (part.inlineData?.data) this.enqueueAudio(part.inlineData.data);
     }
     if (sc.turnComplete) this.cb.onTurnComplete?.();
+  }
+
+  // --- Tool calls: execute against the DB, then return results. --- //
+  private async handleToolCalls(calls: FunctionCall[]): Promise<void> {
+    const responses: Array<{ id?: string; name: string; response: Record<string, unknown> }> = [];
+    for (const call of calls) {
+      const result = this.execute ? await this.execute(call.name, call.args ?? {}) : 'No executor.';
+      this.cb.onAction?.(result);
+      responses.push({ id: call.id, name: call.name, response: { result } });
+    }
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ toolResponse: { functionResponses: responses } }));
+    }
   }
 
   // --- Microphone capture → 16 kHz PCM → socket. --- //

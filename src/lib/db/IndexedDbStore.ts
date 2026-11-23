@@ -3,11 +3,6 @@ import type { DomainMap, DomainName } from '../../types';
 import { PROFILE_ID, type UserProfile } from '../profile';
 import type { Collection, DataStore, NewRecord } from './DataStore';
 import { JarvisDB, dexie } from './schema';
-import { SAMPLE_DATA } from './seed';
-
-// Marks that first-run seeding has happened, so we never re-seed samples over
-// a user who has intentionally emptied their data.
-const SEED_FLAG = 'jarvis:seeded';
 
 const uid = (): string =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -76,6 +71,7 @@ export class IndexedDbStore implements DataStore {
   readonly visionItems: Collection<DomainMap['visionItems']>;
   readonly tasks: Collection<DomainMap['tasks']>;
   readonly calendarEvents: Collection<DomainMap['calendarEvents']>;
+  readonly activities: Collection<DomainMap['activities']>;
 
   constructor(db: JarvisDB = dexie) {
     this.db = db;
@@ -86,6 +82,7 @@ export class IndexedDbStore implements DataStore {
     this.visionItems = new DexieCollection(db.visionItems, notify);
     this.tasks = new DexieCollection(db.tasks, notify);
     this.calendarEvents = new DexieCollection(db.calendarEvents, notify);
+    this.activities = new DexieCollection(db.activities, notify);
     this.collections = {
       transactions: this.transactions,
       workouts: this.workouts,
@@ -93,6 +90,7 @@ export class IndexedDbStore implements DataStore {
       visionItems: this.visionItems,
       tasks: this.tasks,
       calendarEvents: this.calendarEvents,
+      activities: this.activities,
     };
   }
 
@@ -130,45 +128,6 @@ export class IndexedDbStore implements DataStore {
     this.emit();
   }
 
-  private async insertSample(): Promise<void> {
-    await this.db.transaction(
-      'rw',
-      [
-        this.db.transactions,
-        this.db.workouts,
-        this.db.goals,
-        this.db.visionItems,
-        this.db.tasks,
-        this.db.calendarEvents,
-      ],
-      async () => {
-        await this.db.transactions.bulkPut(SAMPLE_DATA.transactions);
-        await this.db.workouts.bulkPut(SAMPLE_DATA.workouts);
-        await this.db.goals.bulkPut(SAMPLE_DATA.goals);
-        await this.db.visionItems.bulkPut(SAMPLE_DATA.visionItems);
-        await this.db.tasks.bulkPut(SAMPLE_DATA.tasks);
-        await this.db.calendarEvents.bulkPut(SAMPLE_DATA.calendarEvents);
-      },
-    );
-    this.emit();
-  }
-
-  async seedIfEmpty(): Promise<void> {
-    // Seed exactly once, ever. The flag persists, so deleting your rows (or
-    // "Clear all data") leaves the app empty instead of resurrecting samples.
-    if (localStorage.getItem(SEED_FLAG)) return;
-    localStorage.setItem(SEED_FLAG, '1');
-    const total = await this.db.transactions.count();
-    if (total > 0) return;
-    await this.insertSample();
-  }
-
-  async resetToSample(): Promise<void> {
-    await this.reset();
-    await this.insertSample();
-    localStorage.setItem(SEED_FLAG, '1');
-  }
-
   async reset(): Promise<void> {
     await Promise.all([
       this.db.transactions.clear(),
@@ -177,6 +136,7 @@ export class IndexedDbStore implements DataStore {
       this.db.visionItems.clear(),
       this.db.tasks.clear(),
       this.db.calendarEvents.clear(),
+      this.db.activities.clear(),
       this.db.profile.clear(),
     ]);
     this.emit();

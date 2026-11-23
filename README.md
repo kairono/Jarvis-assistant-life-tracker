@@ -131,3 +131,11 @@ src/
 - **Charts:** Recharts, themed from the active palette.
 - **Voice:** Uses the browser's Web Speech API; unsupported browsers simply hide
   the mic/speaker controls.
+
+## Claude artifact build
+
+Jarvis also runs as a private claude.ai artifact: https://claude.ai/artifact/Ub1Vd3E3XtfPncLKFHF7pH
+
+- `npm run build:artifact` builds `dist-artifact/index.html` (a single file). `.env.artifact` blanks every key so nothing from `.env` gets baked in. Publish that file from Claude Code to the same URL.
+- In the artifact, data lives in the artifact database (one collection per domain, plus `profile/me`), the AI and voice are claude.ai's built-in Claude, and `memory/summary` holds an auto-generated Markdown briefing Claude can read in any chat (`memory/notes` holds lasting facts).
+- Activity tracker: paste logs like `Time in Toilet` / `23.11.26 - 30min (4:25PM)` on the Tracker page or into the Jarvis chat. Google Calendar sync turns on once `GCAL_CONNECTOR` in `src/lib/gcal.ts` is filled in for the claude.ai Google Calendar connector.

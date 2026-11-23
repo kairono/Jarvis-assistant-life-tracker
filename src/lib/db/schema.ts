@@ -6,6 +6,7 @@ import type {
   VisionItem,
   Task,
   CalendarEvent,
+  ActivitySession,
 } from '../../types';
 import type { StoredProfile } from '../profile';
 
@@ -19,6 +20,7 @@ export class JarvisDB extends Dexie {
   visionItems!: Table<VisionItem, string>;
   tasks!: Table<Task, string>;
   calendarEvents!: Table<CalendarEvent, string>;
+  activities!: Table<ActivitySession, string>;
   // Singleton row holding the user's personal profile (see lib/profile.ts).
   profile!: Table<StoredProfile, string>;
 
@@ -34,6 +36,8 @@ export class JarvisDB extends Dexie {
     });
     // v2 adds the profile store; existing tables carry over untouched.
     this.version(2).stores({ profile: 'id' });
+    // v3 adds timed activity sessions (Tracker page).
+    this.version(3).stores({ activities: 'id, start, activity' });
   }
 }
 

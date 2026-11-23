@@ -7,7 +7,8 @@ import {
   type ColorVars,
 } from './themes';
 
-const STORAGE_KEY = 'jarvis.theme';
+// v3: Jarvis HUD + glass merge — saved themes reset to the new default once.
+const STORAGE_KEY = 'jarvis.theme.v3';
 
 interface ThemeState {
   themeId: string;
@@ -52,6 +53,7 @@ function apply(state: ThemeState): void {
   });
   if (state.accent) root.style.setProperty('--c-accent', state.accent);
   root.style.setProperty('--font-ui', font.stack);
+  root.dataset.light = theme.id === 'daylight' ? 'true' : 'false';
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {

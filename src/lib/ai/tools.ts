@@ -1,5 +1,8 @@
 import { db } from '../db';
 import type { TaskPriority, TransactionType } from '../../types';
+import { parseActivityLog, saveSessions } from '../activityLog';
+import { createCalendarEvent, listCalendarEvents, syncSessionsToCalendar } from '../gcal';
+import { appendMemoryNote } from '../memory';
 
 // ------------------------------------------------------------------ //
 //  Tools — the "action layer".                                        //
@@ -120,17 +123,56 @@ export const TOOLS: ToolDef[] = [
     },
   },
   {
+    name: 'list_calendar_events',
+    description:
+      "Read events from the user's Google Calendar. Defaults to the next 7 days. Use for questions about their schedule.",
+    parameters: {
+      type: 'object',
+      properties: {
+        from: { type: 'string', description: 'Start, ISO date or datetime (local time). Defaults to now.' },
+        to: { type: 'string', description: 'End, ISO date or datetime (local time). Defaults to 7 days after `from`.' },
+        query: { type: 'string', description: 'Optional text to match in titles, e.g. "dentist".' },
+      },
+    },
+  },
+  {
     name: 'add_calendar_event',
-    description: 'Add a calendar event.',
+    description: "Create an event in the user's Google Calendar.",
     parameters: {
       type: 'object',
       properties: {
         title: { type: 'string' },
-        start: { type: 'string', description: 'ISO datetime, e.g. 2026-07-02T09:00.' },
-        end: { type: 'string', description: 'ISO datetime. Defaults to 1 hour after start.' },
+        start: { type: 'string', description: 'Local datetime, e.g. 2026-07-02T09:00 (no timezone suffix).' },
+        end: { type: 'string', description: 'Local datetime. Defaults to 1 hour after start.' },
         description: { type: 'string' },
       },
       required: ['title', 'start'],
+    },
+  },
+  {
+    name: 'log_activity_sessions',
+    description:
+      'Log timed daily-activity sessions (toilet, shower, breakfast, walking the dog…) and push them to Google Calendar. ' +
+      'Pass the user\'s log text VERBATIM in `log`, e.g. "Time in Toilet\n23.11.26 - 30min (4:25PM)\n18.11.26 - 55min (4:50PM) and 45min (10:25PM)". ' +
+      'Dates are DD.MM.YY. For a single spoken entry, build one line in that format (e.g. "Shower\n23.11.26 - 15min (9:10AM)").',
+    parameters: {
+      type: 'object',
+      properties: {
+        log: { type: 'string', description: 'Log text: an activity heading line, then "DD.MM.YY - <n>min (<h:mm>AM|PM)" lines.' },
+        activity: { type: 'string', description: 'Activity name if the log has no heading line.' },
+      },
+      required: ['log'],
+    },
+  },
+  {
+    name: 'remember',
+    description:
+      'Save a durable fact, preference or note about the user to Jarvis memory (read by Claude in every future chat). ' +
+      'Use when the user says "remember…" or shares something lasting about themselves.',
+    parameters: {
+      type: 'object',
+      properties: { note: { type: 'string', description: 'One short, self-contained fact.' } },
+      required: ['note'],
     },
   },
 ];
@@ -223,13 +265,58 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
       return `Updated "${match.title}" to ${progress}%.`;
     }
 
+    case 'list_calendar_events': {
+      const from = s(args.from) ? new Date(s(args.from)) : new Date();
+      const to = s(args.to) ? new Date(s(args.to)) : new Date(from.getTime() + 7 * 86_400_000);
+      if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return 'Failed: bad date range.';
+      try {
+        const events = await listCalendarEvents(from, to, s(args.query) || undefined);
+        if (!events.length) return 'No events in that range.';
+        return events
+          .map((e) =>
+            e.allDay
+              ? `${e.start} (all day) ${e.title}`
+              : `${new Date(e.start).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}–${new Date(e.end).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })} ${e.title}`,
+          )
+          .join('\n');
+      } catch (e) {
+        return `Failed: ${e instanceof Error ? e.message : String(e)}`;
+      }
+    }
+
     case 'add_calendar_event': {
       const title = s(args.title);
       const start = s(args.start);
       if (!title || !start) return 'Failed: event needs a title and start time.';
-      const end = s(args.end) || new Date(new Date(start).getTime() + 3_600_000).toISOString();
-      await db.calendarEvents.add({ title, start, end, description: s(args.description) || undefined, source: 'local' });
-      return `Added event "${title}".`;
+      try {
+        await createCalendarEvent({ title, start, end: s(args.end) || undefined, description: s(args.description) || undefined });
+        return `Added "${title}" to Google Calendar.`;
+      } catch (e) {
+        return `Failed: ${e instanceof Error ? e.message : String(e)}`;
+      }
+    }
+
+    case 'log_activity_sessions': {
+      const { sessions, errors } = parseActivityLog(s(args.log), s(args.activity));
+      if (!sessions.length) return `Failed: could not read any sessions.${errors.length ? ` Unreadable: ${errors.slice(0, 3).join(' | ')}` : ''}`;
+      const { added, duplicates } = await saveSessions(sessions);
+      const sync = added.length ? await syncSessionsToCalendar(added) : null;
+      const total = added.reduce((m, a) => m + a.durationMin, 0);
+      return [
+        `Logged ${added.length} ${sessions[0].activity} session${added.length === 1 ? '' : 's'} (${total} min)`,
+        duplicates ? `${duplicates} already logged` : '',
+        errors.length ? `${errors.length} line(s) unreadable` : '',
+        sync ? sync.summary : '',
+      ]
+        .filter(Boolean)
+        .join(' · ') + '.';
+    }
+
+    case 'remember': {
+      const note = s(args.note);
+      if (!note) return 'Failed: nothing to remember.';
+      await appendMemoryNote(note);
+      return `Remembered: ${note}`;
     }
 
     default:

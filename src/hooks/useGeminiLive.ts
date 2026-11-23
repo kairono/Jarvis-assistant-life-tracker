@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { GeminiLiveClient, type LiveStatus } from '../lib/ai/GeminiLiveClient';
+import { executeTool } from '../lib/ai/tools';
 
 export type LiveState = 'idle' | LiveStatus;
 
@@ -14,7 +15,7 @@ export interface LiveTurn {
  * live (in-progress) captions, and start/stop controls. Completed turns are
  * pushed to `onTurn` so the caller can log them in the chat transcript.
  */
-export function useGeminiLive(onTurn?: (turn: LiveTurn) => void) {
+export function useGeminiLive(onTurn?: (turn: LiveTurn) => void, onAction?: (summary: string) => void) {
   const [state, setState] = useState<LiveState>('idle');
   const [error, setError] = useState<string | null>(null);
   const [userCaption, setUserCaption] = useState('');
@@ -25,6 +26,8 @@ export function useGeminiLive(onTurn?: (turn: LiveTurn) => void) {
   const modelBuf = useRef('');
   const onTurnRef = useRef(onTurn);
   onTurnRef.current = onTurn;
+  const onActionRef = useRef(onAction);
+  onActionRef.current = onAction;
 
   const start = useCallback(async (systemInstruction: string, apiKey: string) => {
     if (clientRef.current) return;
@@ -52,8 +55,9 @@ export function useGeminiLive(onTurn?: (turn: LiveTurn) => void) {
         setUserCaption('');
         setModelCaption('');
       },
+      onAction: (summary) => onActionRef.current?.(summary),
       onError: (m) => setError(m),
-    });
+    }, executeTool);
     clientRef.current = client;
 
     try {

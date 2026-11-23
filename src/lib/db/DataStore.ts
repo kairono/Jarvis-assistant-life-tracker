@@ -31,6 +31,7 @@ export interface DataStore {
   readonly visionItems: Collection<DomainMap['visionItems']>;
   readonly tasks: Collection<DomainMap['tasks']>;
   readonly calendarEvents: Collection<DomainMap['calendarEvents']>;
+  readonly activities: Collection<DomainMap['activities']>;
 
   /** Strongly-typed accessor by domain name. */
   collection<K extends DomainName>(name: K): Collection<DomainMap[K]>;
@@ -54,15 +55,6 @@ export interface DataStore {
    */
   deleteProfile(): Promise<void>;
 
-  /**
-   * Insert sample data on the very first run only. Once seeded (tracked with a
-   * persistent flag), emptying the data will NOT bring the sample back.
-   */
-  seedIfEmpty(): Promise<void>;
-
-  /** Wipe everything and load a fresh copy of the sample data. */
-  resetToSample(): Promise<void>;
-
-  /** Wipe everything (used by the "reset data" action in Settings). */
+  /** Wipe everything (used by the "clear data" action in Settings). */
   reset(): Promise<void>;
 }

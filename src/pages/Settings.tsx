@@ -15,18 +15,13 @@ export function Settings() {
   const theme = useTheme();
   const activeTheme = THEMES.find((t) => t.id === theme.themeId) ?? THEMES[0];
   const activeAccent = theme.accent ?? activeTheme.vars.accent;
-  const [confirmReset, setConfirmReset] = useState<null | 'clear' | 'sample'>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
 
-  async function runReset(kind: 'clear' | 'sample') {
-    if (kind === 'sample') {
-      await db.resetToSample();
-    } else {
-      // A full clear also tombstones the profile so it isn't re-seeded from the
-      // env baseline on the next load.
-      await db.reset();
-      await db.deleteProfile();
-    }
-    setConfirmReset(null);
+  async function clearAll() {
+    await db.reset();
+    // Also tombstone the profile so it isn't re-seeded from the env baseline.
+    await db.deleteProfile();
+    setConfirmClear(false);
   }
 
   return (
@@ -163,21 +158,18 @@ export function Settings() {
       {/* Data */}
       <Panel className="p-5">
         <SectionHeader title="Data" subtitle="Everything is stored locally in your browser (IndexedDB)" />
-        {confirmReset ? (
+        {confirmClear ? (
           <div className="flex flex-wrap items-center gap-3 rounded-lg border border-danger/40 bg-danger/10 p-3">
-            <span className="text-sm text-text">
-              {confirmReset === 'clear' ? 'Delete all data? This cannot be undone.' : 'Replace all data with the sample set?'}
-            </span>
+            <span className="text-sm text-text">Delete all data? This cannot be undone.</span>
             <div className="ml-auto flex gap-2">
-              <Button variant="ghost" onClick={() => setConfirmReset(null)}>Cancel</Button>
-              <Button variant="danger" onClick={() => runReset(confirmReset)}>Confirm</Button>
+              <Button variant="ghost" onClick={() => setConfirmClear(false)}>Cancel</Button>
+              <Button variant="danger" onClick={clearAll}>Confirm</Button>
             </div>
           </div>
         ) : (
           <div className="flex flex-wrap gap-2">
             <Button variant="ghost" onClick={() => downloadExport()}>Export my data</Button>
-            <Button variant="ghost" onClick={() => setConfirmReset('sample')}>Reset to sample data</Button>
-            <Button variant="danger" onClick={() => setConfirmReset('clear')}>
+            <Button variant="danger" onClick={() => setConfirmClear(true)}>
               <Icon name="trash" size={15} /> Clear all data
             </Button>
             <Button variant="ghost" onClick={theme.reset} className="ml-auto">Reset personalization</Button>

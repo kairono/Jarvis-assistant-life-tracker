@@ -66,12 +66,12 @@ export function StatCard({
     warn: 'text-warn',
   }[tone];
   return (
-    <Panel corners className="p-4">
+    <Panel corners className="p-5">
       <div className="flex items-start justify-between">
         <span className="label-tech">{label}</span>
         {icon && (
-          <span className={`${toneText} opacity-80`}>
-            <Icon name={icon} size={18} />
+          <span className={`flex h-8 w-8 items-center justify-center rounded-full bg-white/10 ${toneText}`}>
+            <Icon name={icon} size={16} />
           </span>
         )}
       </div>
@@ -97,7 +97,7 @@ export function Badge({
   tone?: keyof typeof TONES;
 }) {
   return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${TONES[tone]}`}>
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${TONES[tone]}`}>
       {children}
     </span>
   );
@@ -106,7 +106,7 @@ export function Badge({
 export function ProgressBar({ value, tone = 'accent' }: { value: number; tone?: string }) {
   const color = { accent: 'bg-accent', success: 'bg-success', warn: 'bg-warn', danger: 'bg-danger' }[tone] ?? 'bg-accent';
   return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface">
+    <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
       <div className={`h-full rounded-full ${color}`} style={{ width: `${Math.max(0, Math.min(100, value))}%` }} />
     </div>
   );
@@ -143,7 +143,7 @@ export function IconButton({
 }: ButtonHTMLAttributes<HTMLButtonElement> & { icon: string; size?: number }) {
   return (
     <button
-      className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted transition hover:border-accent/50 hover:text-text ${className}`}
+      className={`inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-muted transition hover:bg-white/20 hover:text-text active:scale-95 ${className}`}
       {...rest}
     >
       <Icon name={icon} size={size} />
@@ -200,15 +200,15 @@ export function Modal({
   if (!open) return null;
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-md"
       onMouseDown={onClose}
     >
       <div
-        className={`hud-panel hud-corners w-full ${wide ? 'max-w-2xl' : 'max-w-md'} animate-fade-in p-5`}
+        className={`hud-panel glass w-full ${wide ? 'max-w-2xl' : 'max-w-md'} animate-fade-in p-6`}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-base text-text">{title}</h3>
+          <h3 className="text-lg text-text">{title}</h3>
           <IconButton icon="x" onClick={onClose} aria-label="Close" />
         </div>
         <div className="max-h-[70vh] overflow-y-auto pr-1">{children}</div>
