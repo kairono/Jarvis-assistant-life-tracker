@@ -3,6 +3,7 @@ import type { TaskPriority, TransactionType } from '../../types';
 import { parseActivityLog, saveSessions } from '../activityLog';
 import { createCalendarEvent, listCalendarEvents, syncSessionsToCalendar } from '../gcal';
 import { appendMemoryNote } from '../memory';
+import { saveGymLog } from '../gymLog';
 
 // ------------------------------------------------------------------ //
 //  Tools — the "action layer".                                        //
@@ -94,6 +95,18 @@ export const TOOLS: ToolDef[] = [
         notes: { type: 'string' },
       },
       required: ['type', 'duration'],
+    },
+  },
+  {
+    name: 'log_gym_session',
+    description:
+      'Log gym sessions with exercises and sets. Pass the user\'s gym notes VERBATIM in `log`: a date line ' +
+      '("November 20 Fri"), optional muscle-group headings ("Chest"), and exercise lines with WEIGHTxREPS sets ' +
+      '("Leg press machine 160x15, 200x15", drop sets "34x8/28x8"). Re-logging a date replaces that day.',
+    parameters: {
+      type: 'object',
+      properties: { log: { type: 'string', description: 'The gym notes text.' } },
+      required: ['log'],
     },
   },
   {
@@ -239,6 +252,11 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
         notes: s(args.notes) || undefined,
       });
       return `Logged ${duration}min ${type} workout.`;
+    }
+
+    case 'log_gym_session': {
+      const r = await saveGymLog(s(args.log));
+      return r.summary;
     }
 
     case 'add_goal': {

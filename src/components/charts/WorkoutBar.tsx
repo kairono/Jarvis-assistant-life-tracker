@@ -12,8 +12,9 @@ import { useChartColors } from '../../hooks/useChartColors';
 
 interface Row {
   week: string;
-  minutes: number;
+  sets: number;
   count: number;
+  volume: number;
 }
 
 export function WorkoutBar({ data }: { data: Row[] }) {
@@ -27,10 +28,13 @@ export function WorkoutBar({ data }: { data: Row[] }) {
           <YAxis stroke={c.muted} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
           <Tooltip
             cursor={{ fill: c.grid }}
-            formatter={(v, _n, item) => [
-              `${Number(v)} min · ${(item?.payload as Row | undefined)?.count ?? 0} sessions`,
-              'Volume',
-            ]}
+            formatter={(v, _n, item) => {
+              const row = item?.payload as Row | undefined;
+              return [
+                `${Number(v)} sets · ${row?.count ?? 0} sessions · ${((row?.volume ?? 0) / 1000).toFixed(1)} t`,
+                'Week',
+              ];
+            }}
             contentStyle={{
               background: c.tooltipBg,
               border: `1px solid ${c.tooltipBorder}`,
@@ -39,7 +43,7 @@ export function WorkoutBar({ data }: { data: Row[] }) {
               fontSize: 12,
             }}
           />
-          <Bar dataKey="minutes" radius={[4, 4, 0, 0]}>
+          <Bar dataKey="sets" radius={[4, 4, 0, 0]}>
             {data.map((_, i) => (
               <Cell key={i} fill={c.accent} />
             ))}

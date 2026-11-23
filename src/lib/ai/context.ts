@@ -2,7 +2,8 @@ import { db } from '../db';
 import { listCalendarEvents } from '../gcal';
 import { isThisMonth, money, relativeDay, shortDate } from '../format';
 import { getEffectiveProfile, profileSummary } from '../profile';
-import type { Transaction } from '../../types';
+import type { Exercise, Transaction } from '../../types';
+import { exerciseHistory } from '../analytics';
 
 // ------------------------------------------------------------------ //
 //  Context selector.                                                  //
@@ -43,10 +44,25 @@ export async function financeSection(): Promise<string> {
     .slice(0, 8)
     .map((t) => `${shortDate(t.date)} ${t.type === 'expense' ? '-' : '+'}${money(t.amount)} ${t.category}${t.note ? ` (${t.note})` : ''}`)
     .join('\n');
+  const year = String(new Date().getFullYear());
+  const byMonth = new Map<string, { kzt: number; usd: number }>();
+  for (const t of txns) {
+    if (t.type !== 'income' || !t.date.startsWith(year)) continue;
+    const m = byMonth.get(t.date.slice(0, 7)) ?? { kzt: 0, usd: 0 };
+    m.kzt += t.amount;
+    if (t.currency === 'USD') m.usd += t.originalAmount ?? 0;
+    byMonth.set(t.date.slice(0, 7), m);
+  }
+  const yearLine = [...byMonth.entries()]
+    .sort()
+    .map(([k, m]) => `${k} ${money(m.kzt)}${m.usd ? ` (incl. $${m.usd.toFixed(2)} USD)` : ''}`)
+    .join('; ');
+  const yearTotal = [...byMonth.values()].reduce((a, m) => a + m.kzt, 0);
   return [
     'FINANCES',
     `This month: income ${money(sumIncome(month))}, expenses ${money(sumExpenses(month))}, net ${money(sumIncome(month) - sumExpenses(month))}.`,
     cats ? `Spending by category this month: ${cats}.` : '',
+    yearLine ? `Income ${year} by month: ${yearLine}. Year total ${money(yearTotal)}.` : '',
     'Recent transactions:',
     recent || '(none)',
   ]
@@ -57,11 +73,33 @@ export async function financeSection(): Promise<string> {
 export async function trainingSection(): Promise<string> {
   const ws = (await db.workouts.all()).sort((a, b) => b.date.localeCompare(a.date));
   const last30 = ws.filter((w) => Date.now() - new Date(w.date).getTime() < 30 * 86_400_000);
+  const setStr = (e: Exercise) =>
+    e.sets.map((s) => `${s.drop ? '↘' : ''}${s.kg}x${s.reps}`).join(', ') || e.note || '';
   const lines = ws
-    .slice(0, 6)
-    .map((w) => `${shortDate(w.date)} ${w.type} ${w.duration}min intensity ${w.intensity}/5`)
+    .slice(0, 4)
+    .map((w) =>
+      w.exercises?.length
+        ? `${shortDate(w.date)} ${w.type}: ${w.exercises.map((e) => `${e.name} ${setStr(e)}`).join('; ')}`
+        : `${shortDate(w.date)} ${w.type}${w.duration ? ` ${w.duration}min` : ''}${w.intensity ? ` intensity ${w.intensity}/5` : ''}`,
+    )
     .join('\n');
-  return ['TRAINING', `${last30.length} workouts in the last 30 days.`, lines || '(none)'].join('\n');
+  const bests = exerciseHistory(ws)
+    .slice(0, 15)
+    .map((h) => {
+      const first = h.sessions[0];
+      const last = h.sessions[h.sessions.length - 1];
+      return `${h.name}: best ${h.best.kg}kg x${h.best.reps} (${shortDate(h.best.date)}), first ${first.topKg}x${first.topReps}, latest ${last.topKg}x${last.topReps} (${h.sessions.length} sessions)`;
+    })
+    .join('\n');
+  return [
+    'TRAINING (weights in kg, sets as KGxREPS, 0 kg = bodyweight, ↘ = drop set)',
+    `${last30.length} workouts in the last 30 days, ${ws.length} logged.`,
+    'Recent sessions:',
+    lines || '(none)',
+    bests ? `Top sets per exercise:\n${bests}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 export async function goalsSection(): Promise<string> {

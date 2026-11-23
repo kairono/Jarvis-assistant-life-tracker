@@ -11,20 +11,42 @@ export type TransactionType = 'income' | 'expense';
 export interface Transaction {
   id: ID;
   date: string; // ISO date (YYYY-MM-DD)
-  amount: number; // always positive; `type` gives the direction
+  amount: number; // in tenge (KZT); `type` gives the direction. Negative only for a refund on an expense
   type: TransactionType;
   category: string;
+  note?: string;
+  /** Paid in another currency: the original amount and the KZT rate used. */
+  currency?: 'USD';
+  originalAmount?: number;
+  rate?: number;
+  /** True when `rate` is an assumed rate, not one the user gave. */
+  rateEstimated?: boolean;
+}
+
+export interface WorkoutSet {
+  kg: number; // 0 = bodyweight
+  reps: number;
+  /** Second half of a drop set (written "34x8/28x8"). */
+  drop?: boolean;
+}
+
+export interface Exercise {
+  group?: string; // muscle group, e.g. "Chest"
+  name: string;
+  sets: WorkoutSet[];
   note?: string;
 }
 
 export interface Workout {
   id: ID;
   date: string; // ISO date
-  type: string; // e.g. "Run", "Strength", "Yoga"
-  duration: number; // minutes
-  intensity: 1 | 2 | 3 | 4 | 5;
+  type: string; // e.g. "Chest + Biceps", "Run", "Yoga"
+  duration?: number; // minutes, when known
+  intensity?: 1 | 2 | 3 | 4 | 5;
   notes?: string;
   metrics?: Record<string, number>; // e.g. { weightKg: 80, reps: 40, distanceKm: 5 }
+  /** Gym sessions: every exercise with its sets. */
+  exercises?: Exercise[];
 }
 
 export type GoalStatus = 'active' | 'paused' | 'done';

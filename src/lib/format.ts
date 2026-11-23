@@ -1,9 +1,25 @@
 // Small shared formatting helpers used across pages and the AI context.
 
+/** All amounts are stored in tenge. */
+export const BASE_CURRENCY = 'KZT';
+
 export const money = (n: number): string =>
-  n.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+  n.toLocaleString(undefined, {
+    style: 'currency',
+    currency: BASE_CURRENCY,
+    currencyDisplay: 'narrowSymbol',
+    maximumFractionDigits: 0,
+  });
 
 export const money2 = (n: number): string =>
+  n.toLocaleString(undefined, {
+    style: 'currency',
+    currency: BASE_CURRENCY,
+    currencyDisplay: 'narrowSymbol',
+    minimumFractionDigits: 2,
+  });
+
+export const usd = (n: number): string =>
   n.toLocaleString(undefined, { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
 
 export const shortDate = (iso: string): string => {
